@@ -1,6 +1,6 @@
 {
   "name": "kodexor",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Export your project’s source code into a single file (with relative paths) for AI code analysis, review, or auditing. Flexible exclusion rules and blazing-fast CLI.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
