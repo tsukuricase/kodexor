@@ -1,0 +1,49 @@
+{
+  "name": "kodexor",
+  "version": "0.0.1",
+  "description": "Export your project’s source code into a single file (with relative paths) for AI code analysis, review, or auditing. Flexible exclusion rules and blazing-fast CLI.",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "kodexor": "dist/index.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "start": "ts-node src/index.ts",
+    "prepare": "npm run build",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "kodexor",
+    "code",
+    "ai",
+    "project",
+    "llm",
+    "cli",
+    "export",
+    "codexor",
+    "codexor-cli",
+    "projector"
+  ],
+  "author": "jalever",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tsukuricase/kodexor.git"
+  },
+  "homepage": "https://github.com/tsukuricase/kodexor#readme",
+  "bugs": {
+    "url": "https://github.com/tsukuricase/kodexor/issues"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.12",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.8.3"
+  }
+}
