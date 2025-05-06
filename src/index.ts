@@ -29,13 +29,13 @@ function isExcluded(relPath: string, excludeDirs: string[]): boolean {
 }
 
 function* walk(dir: string, parentRel = '', excludeDirs: string[] = []): Generator<{ relPath: string, absPath: string }> {
-  for (const file of fs.readdirSync(dir, { withFileTypes: true })) {
-    const relPath = path.join(parentRel, file.name);
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const relPath = path.join(parentRel, entry.name);
     if (isExcluded(relPath, excludeDirs)) continue;
-    const absPath = path.join(dir, file.name);
-    if (file.isDirectory()) {
+    const absPath = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
       yield* walk(absPath, relPath, excludeDirs);
-    } else {
+    } else if (entry.isFile()) {
       yield { relPath, absPath };
     }
   }
