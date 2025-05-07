@@ -148,7 +148,6 @@ function buildTree(files: OutputFile[]) {
                 });
             }
             cur = cur.children.get(part)!;
-            // 最后一层放 relPath/ok
             if (i === parts.length - 1) {
                 cur.relPath = f.relPath;
                 cur.ok = f.ok;

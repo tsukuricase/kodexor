@@ -1,5 +1,11 @@
 # kodexor
 
+## 0.0.13
+
+### Patch Changes
+
+- chore: remove outdated comment in index.ts to improve code clarity
+
 ## 0.0.12
 
 ### Patch Changes
