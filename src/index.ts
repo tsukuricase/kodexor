@@ -3,16 +3,44 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { Writable } from 'stream';
 
+const PKG_PATH = path.resolve(__dirname, '../package.json');
+
+function printHelp() {
+  console.log(`
+kodexor - Export your project source files into a single text file for AI analysis.
+
+Usage:
+  kodexor [--exclude=dir1,dir2] [--output=output.txt]
+
+Options:
+  --exclude=dir1,dir2     Comma-separated list of directories to exclude
+  --output=output.txt     Output file path (default: stdout)
+  -h, --help              Show help
+  -v, --version           Print version
+`);
+}
+
+function printVersion() {
+  if (fs.existsSync(PKG_PATH)) {
+    const pkg = JSON.parse(fs.readFileSync(PKG_PATH, 'utf8'));
+    console.log(pkg.version || 'unknown');
+  } else {
+    console.log('unknown');
+  }
+}
+
 interface Options {
   excludeDirs: string[];
   output?: string;
 }
 
-function getOptionsFromArgv(): Options {
+function getOptionsFromArgv(): Options | 'help' | 'version' {
   const args = process.argv.slice(2);
   let excludeDirs: string[] = [];
   let output: string | undefined;
   for (const arg of args) {
+    if (arg === '-h' || arg === '--help') return 'help';
+    if (arg === '-v' || arg === '--version') return 'version';
     if (arg.startsWith('--exclude=')) {
       excludeDirs = arg.replace('--exclude=', '').split(',').filter(Boolean);
     }
@@ -41,25 +69,35 @@ function* walk(dir: string, parentRel = '', excludeDirs: string[] = []): Generat
 }
 
 function main() {
-    const options = getOptionsFromArgv();
-    const rootDir = '.';
-  
-    let writeStream: Writable;
-    if (options.output) {
-      writeStream = fs.createWriteStream(options.output);
-    } else {
-      writeStream = process.stdout; // process.stdout: Writable
-    }
-  
-    for (const { relPath, absPath } of walk(rootDir, '', options.excludeDirs)) {
-      const code = fs.readFileSync(absPath, 'utf8');
-      writeStream.write(`\n==== FILE: ${relPath} ====\n`);
-      writeStream.write(code + '\n');
-      writeStream.write(`==== END FILE ====\n`);
-    }
-    if (writeStream !== process.stdout) {
-      (writeStream as fs.WriteStream).end();
-    }
+  const options = getOptionsFromArgv();
+  if (options === 'help') {
+    printHelp();
+    process.exit(0);
+  }
+  if (options === 'version') {
+    printVersion();
+    process.exit(0);
+  }
+  // 业务主流程
+  const opts = options as Options;
+  const rootDir = '.';
+
+  let writeStream: Writable;
+  if (opts.output) {
+    writeStream = fs.createWriteStream(opts.output);
+  } else {
+    writeStream = process.stdout;
+  }
+
+  for (const { relPath, absPath } of walk(rootDir, '', opts.excludeDirs)) {
+    const code = fs.readFileSync(absPath, 'utf8');
+    writeStream.write(`\n==== FILE: ${relPath} ====\n`);
+    writeStream.write(code + '\n');
+    writeStream.write(`==== END FILE ====\n`);
+  }
+  if (writeStream !== process.stdout) {
+    (writeStream as fs.WriteStream).end();
+  }
 }
 
 main();
