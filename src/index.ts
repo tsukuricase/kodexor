@@ -22,6 +22,18 @@ interface Options {
 }
 interface OutputFile { relPath: string; ok: boolean; error?: string; content?: string; }
 
+function findNearestPkgJson(startDir: string): { pkgPath: string, dir: string } | null {
+    let dir = path.resolve(startDir);
+    for (;;) {
+        const candidate = path.join(dir, 'package.json');
+        if (fs.existsSync(candidate)) return { pkgPath: candidate, dir };
+        const parent = path.dirname(dir);
+        if (parent === dir) break;
+        dir = parent;
+    }
+    return null;
+}
+
 function parseArgv(): Partial<Options> | 'help' | 'version' {
     const args = process.argv.slice(2);
     let excludeDirs: string[] | undefined;
@@ -50,17 +62,16 @@ function parseArgv(): Partial<Options> | 'help' | 'version' {
  */
 function pickOutputFilePath(cfg: { output?: string; outputDir?: string }) {
     if (cfg.output) return cfg.output;
-    const dir = cfg.outputDir;
-    if (!dir) return undefined;
-    let pname = '';
-    try {
-        const pkg = JSON.parse(fs.readFileSync('./package.json', 'utf8'));
-        pname = pkg.name || '';
-    } catch {
-        pname = path.basename(process.cwd());
-    }
-    pname = pname.replace(/[^\w.-]/g, '_'); // 防止奇怪字符
-    return path.join(dir, `${pname}-export.md`);
+    if (!cfg.outputDir) return undefined;
+    const cwd = process.cwd();
+    const found = findNearestPkgJson(cwd);
+    let pkgName = found ? (JSON.parse(fs.readFileSync(found.pkgPath, 'utf8')).name || '') : '';
+    if (!pkgName) pkgName = found ? path.basename(found.dir) : path.basename(cwd);
+    pkgName = pkgName.replace(/[^\w\-.]/g, '_');
+    let rel = found ? path.relative(found.dir, cwd) : '';
+    let relSegs = rel.split(path.sep).filter(Boolean);
+    const fname = [pkgName, ...relSegs].join('-') + '-export.md';
+    return path.join(cfg.outputDir, fname);
 }
 
 function loadMergedConfig(): KodexorConfig | 'help' | 'version' {
@@ -184,11 +195,10 @@ function main() {
 
     let excludeDirs = config.exclude ? [...config.exclude] : [];
     // === 增强：自动拼接输出路径 ===
-    const outputFile =
-        pickOutputFilePath({
-            output: config.output,
-            outputDir: config.outputDir,
-        }) || 'kodexor-export.md';
+    const outputFile = pickOutputFilePath({
+        output: config.output,
+        outputDir: config.outputDir,
+    }) || 'kodexor-export.md';
 
     const rootDir = '.';
     if (outputFile) {

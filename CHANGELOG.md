@@ -1,5 +1,11 @@
 # kodexor
 
+## 0.0.16
+
+### Patch Changes
+
+- feat: implement findNearestPkgJson function to enhance output file path selection based on nearest package.json
+
 ## 0.0.15
 
 ### Patch Changes
