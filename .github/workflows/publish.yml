@@ -2,7 +2,7 @@ name: Release
 on:
   push:
     branches:
-      - master   # 或 main
+      - master  
 jobs:
   release:
     runs-on: ubuntu-latest
@@ -21,7 +21,6 @@ jobs:
 
       - name: Install deps
         run: pnpm install
-
 
       - run: pnpm install
       - name: Setup Git user for CI
