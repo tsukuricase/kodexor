@@ -1,5 +1,11 @@
 # kodexor
 
+## 0.0.15
+
+### Patch Changes
+
+- feat: add outputDir option for customizable output directory and enhance output file path selection logic
+
 ## 0.0.14
 
 ### Patch Changes

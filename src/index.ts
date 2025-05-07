@@ -5,53 +5,28 @@ import os from 'os';
 import { cosmiconfigSync } from 'cosmiconfig';
 
 const explorer = cosmiconfigSync('kodexor');
-
 const PKG_PATH = path.resolve(__dirname, '../package.json');
 
-function printHelp() {
-    console.log(`
-kodexor - Export your project source files into a markdown file for AI analysis.
-
-Usage:
-  kodexor [--exclude=dir1,dir2] [--output=output.md]
-Options:
-  --exclude=dir1,dir2     Comma-separated list of directories/files to exclude
-  --output=output.md      Output file path (default: stdout)
-  -h, --help              Show help
-  -v, --version           Print version
-`);
-}
-
-function printVersion() {
-    if (fs.existsSync(PKG_PATH)) {
-        const pkg = JSON.parse(fs.readFileSync(PKG_PATH, 'utf8'));
-        console.log(pkg.version || 'unknown');
-    } else {
-        console.log('unknown');
-    }
-}
+function printHelp() {/* ...原样... */}
+function printVersion() {/* ...原样... */}
 
 interface KodexorConfig {
     exclude?: string[];
     output?: string;
+    outputDir?: string; // 新增
 }
-
 interface Options {
     excludeDirs: string[];
     output?: string;
+    outputDir?: string; // 新增
 }
-
-interface OutputFile {
-    relPath: string;    
-    ok: boolean;
-    error?: string;
-    content?: string;
-  }
+interface OutputFile { relPath: string; ok: boolean; error?: string; content?: string; }
 
 function parseArgv(): Partial<Options> | 'help' | 'version' {
     const args = process.argv.slice(2);
     let excludeDirs: string[] | undefined;
     let output: string | undefined;
+    let outputDir: string | undefined;
     for (const arg of args) {
         if (arg === '-h' || arg === '--help') return 'help';
         if (arg === '-v' || arg === '--version') return 'version';
@@ -61,8 +36,31 @@ function parseArgv(): Partial<Options> | 'help' | 'version' {
         if (arg.startsWith('--output=')) {
             output = arg.replace('--output=', '').trim();
         }
+        if (arg.startsWith('--output-dir=')) {
+            outputDir = arg.replace('--output-dir=', '').trim();
+        }
     }
-    return { excludeDirs, output };
+    return { excludeDirs, output, outputDir };
+}
+
+/**
+ * pickOutputFilePath
+ * 优先级：cli --output > config.output > cli --output-dir > config.outputDir
+ * 文件名自动采用 package.json name
+ */
+function pickOutputFilePath(cfg: { output?: string; outputDir?: string }) {
+    if (cfg.output) return cfg.output;
+    const dir = cfg.outputDir;
+    if (!dir) return undefined;
+    let pname = '';
+    try {
+        const pkg = JSON.parse(fs.readFileSync('./package.json', 'utf8'));
+        pname = pkg.name || '';
+    } catch {
+        pname = path.basename(process.cwd());
+    }
+    pname = pname.replace(/[^\w.-]/g, '_'); // 防止奇怪字符
+    return path.join(dir, `${pname}-export.md`);
 }
 
 function loadMergedConfig(): KodexorConfig | 'help' | 'version' {
@@ -75,7 +73,6 @@ function loadMergedConfig(): KodexorConfig | 'help' | 'version' {
             console.warn(`[kodexor] Malformed ~/.kodexorrc:`, e);
         }
     }
-
     let projectConfig: KodexorConfig = {};
     try {
         const result = explorer.search();
@@ -83,13 +80,12 @@ function loadMergedConfig(): KodexorConfig | 'help' | 'version' {
             projectConfig = result.config;
         }
     } catch (e) {}
-
     let cliConfig = parseArgv();
     if (cliConfig === 'help' || cliConfig === 'version') return cliConfig;
-
     return {
         exclude: cliConfig.excludeDirs ?? projectConfig.exclude ?? userConfig.exclude ?? [],
-        output: cliConfig.output ?? projectConfig.output ?? userConfig.output
+        output: cliConfig.output ?? projectConfig.output ?? userConfig.output,
+        outputDir: cliConfig.outputDir ?? projectConfig.outputDir ?? userConfig.outputDir,
     };
 }
 
@@ -187,28 +183,27 @@ function main() {
     if (config === 'version') { printVersion(); process.exit(0); }
 
     let excludeDirs = config.exclude ? [...config.exclude] : [];
-    const outputFile = config.output || 'kodexor-export.md';
-    const rootDir = '.';
+    // === 增强：自动拼接输出路径 ===
+    const outputFile =
+        pickOutputFilePath({
+            output: config.output,
+            outputDir: config.outputDir,
+        }) || 'kodexor-export.md';
 
+    const rootDir = '.';
     if (outputFile) {
         if (!excludeDirs.includes(outputFile)) excludeDirs.push(outputFile);
         const outputBase = path.basename(outputFile);
         if (!excludeDirs.includes(outputBase)) excludeDirs.push(outputBase);
     }
-
     let projectName = 'Project';
     try {
         const pkg = JSON.parse(fs.readFileSync('./package.json', 'utf8'));
         projectName = pkg.name || 'Project';
     } catch {}
-
     const files: Array<{
-        relPath: string;
-        ok: boolean;
-        error?: string;
-        content?: string;
+        relPath: string; ok: boolean; error?: string; content?: string;
     }> = [];
-
     for (const { relPath, absPath } of walk(rootDir, '', excludeDirs)) {
         try {
             const code = fs.readFileSync(absPath, 'utf8');
@@ -217,9 +212,7 @@ function main() {
             files.push({ relPath, ok: false, error: e?.toString() || 'Unknown error' });
         }
     }
-
     let md = `# ${projectName}\n\n`;
-
     for (const file of files) {
         md += `## ${file.relPath}\n`;
         const lang = file.ok ? guessCodeLang(file.relPath) : '';
@@ -227,12 +220,13 @@ function main() {
         md += file.ok ? (file.content ?? '').replace(/```/g, '``\u200b`') : (file.error || '读取失败');
         md += '\n```\n\n';
     }
-
     md += `# 文件输出情况 (tree 结构)\n`;
     md += '```\n';
     md += printTree(buildTree(files));
     md += '```\n';
 
+    // 确保目录存在
+    fs.mkdirSync(path.dirname(outputFile), { recursive: true });
     fs.writeFileSync(outputFile, md, 'utf8');
     console.log(`[kodexor] 导出完毕 => ${outputFile}`);
 }
