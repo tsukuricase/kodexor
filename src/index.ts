@@ -205,7 +205,6 @@ function main() {
         projectName = pkg.name || 'Project';
     } catch {}
 
-    // 收集导出的文件列表
     const files: Array<{
         relPath: string;
         ok: boolean;
@@ -233,7 +232,6 @@ function main() {
         md += '\n```\n\n';
     }
 
-    // 总结导出情况
     md += `# 文件输出情况 (tree 结构)\n`;
     md += '```\n';
     md += printTree(buildTree(files));
