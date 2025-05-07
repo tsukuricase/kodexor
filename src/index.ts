@@ -163,7 +163,6 @@ function printTree(
     isLast: boolean = true
 ): string {
     let output = '';
-    // 跳过根节点空名
     const entries = node.children ? Array.from(node.children.values()) : [];
     entries.forEach((child, idx) => {
         const isLastChild = idx === entries.length - 1;
