@@ -15,7 +15,7 @@ jobs:
         with:
           node-version: 20
           registry-url: 'https://registry.npmjs.org'
-          
+
       - name: Install pnpm
         run: npm install -g pnpm
 
@@ -27,4 +27,5 @@ jobs:
         with:
           publish: pnpm publish --access public
         env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_AUTH_TOKEN: ${{ secrets.AUTOMATION_NPM_TOKEN }}
