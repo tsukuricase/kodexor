@@ -43,7 +43,7 @@ interface Options {
 }
 
 interface OutputFile {
-    relPath: string;    // 相对于根目录的路径
+    relPath: string;    
     ok: boolean;
     error?: string;
     content?: string;
@@ -117,7 +117,6 @@ function* walk(dir: string, parentRel = '', excludeDirs: string[] = []): Generat
 
 function guessCodeLang(filename: string): string {
     const ext = path.extname(filename).replace(/^\./, '');
-    // 一些常用文件名
     if (filename.endsWith('.json')) return 'json';
     if (filename.endsWith('.ts')) return 'ts';
     if (filename.endsWith('.js')) return 'js';
@@ -128,7 +127,6 @@ function guessCodeLang(filename: string): string {
 }
 
 function buildTree(files: OutputFile[]) {
-    // 构建树结构
     type TreeNode = {
         name: string;
         ok?: boolean;
@@ -202,7 +200,6 @@ function main() {
         if (!excludeDirs.includes(outputBase)) excludeDirs.push(outputBase);
     }
 
-    // 获取项目名
     let projectName = 'Project';
     try {
         const pkg = JSON.parse(fs.readFileSync('./package.json', 'utf8'));

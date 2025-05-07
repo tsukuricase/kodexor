@@ -22,6 +22,13 @@ jobs:
       - name: Install deps
         run: pnpm install
 
+
+      - run: pnpm install
+      - name: Setup Git user for CI
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+
       - name: Create Release Pull Request or Publish to npm
         uses: changesets/action@v1
         with:
