@@ -5,21 +5,19 @@ import { Writable } from 'stream';
 import os from 'os';
 import { cosmiconfigSync } from 'cosmiconfig';
 
-// cosmiconfig 支持多层级 config
 const explorer = cosmiconfigSync('kodexor');
 
 const PKG_PATH = path.resolve(__dirname, '../package.json');
 
 function printHelp() {
     console.log(`
-kodexor - Export your project source files into a single text file for AI analysis.
+kodexor - Export your project source files into a markdown file for AI analysis.
 
 Usage:
-  kodexor [--exclude=dir1,dir2] [--output=output.txt]
-
+  kodexor [--exclude=dir1,dir2] [--output=output.md]
 Options:
-  --exclude=dir1,dir2     Comma-separated list of directories to exclude
-  --output=output.txt     Output file path (default: stdout)
+  --exclude=dir1,dir2     Comma-separated list of directories/files to exclude
+  --output=output.md      Output file path (default: stdout)
   -h, --help              Show help
   -v, --version           Print version
 `);
@@ -37,13 +35,19 @@ function printVersion() {
 interface KodexorConfig {
     exclude?: string[];
     output?: string;
-    // 可扩展更多配置
 }
 
 interface Options {
     excludeDirs: string[];
     output?: string;
 }
+
+interface OutputFile {
+    relPath: string;    // 相对于根目录的路径
+    ok: boolean;
+    error?: string;
+    content?: string;
+  }
 
 function parseArgv(): Partial<Options> | 'help' | 'version' {
     const args = process.argv.slice(2);
@@ -62,9 +66,7 @@ function parseArgv(): Partial<Options> | 'help' | 'version' {
     return { excludeDirs, output };
 }
 
-// 合并命令行参数、项目配置、用户全局配置（优先级从高到低）
 function loadMergedConfig(): KodexorConfig | 'help' | 'version' {
-    // 1. 用户目录配置 ~/.kodexorrc (json)
     const userRcPath = path.join(os.homedir(), '.kodexorrc');
     let userConfig: KodexorConfig = {};
     if (fs.existsSync(userRcPath)) {
@@ -75,22 +77,17 @@ function loadMergedConfig(): KodexorConfig | 'help' | 'version' {
         }
     }
 
-    // 2. 项目内配置
     let projectConfig: KodexorConfig = {};
     try {
         const result = explorer.search();
         if (result && result.config) {
             projectConfig = result.config;
         }
-    } catch (e) {
-        // do nothing
-    }
+    } catch (e) {}
 
-    // 3. 命令行参数
     let cliConfig = parseArgv();
     if (cliConfig === 'help' || cliConfig === 'version') return cliConfig;
 
-    // 合并优先级 CLI > project > user
     return {
         exclude: cliConfig.excludeDirs ?? projectConfig.exclude ?? userConfig.exclude ?? [],
         output: cliConfig.output ?? projectConfig.output ?? userConfig.output
@@ -98,13 +95,11 @@ function loadMergedConfig(): KodexorConfig | 'help' | 'version' {
 }
 
 function isExcluded(relPath: string, excludeList: string[]): boolean {
-    const excluded = excludeList.some(ex => {
-        const matches = relPath === ex || 
-                        relPath.startsWith(ex + path.sep) || 
-                        path.basename(relPath) === ex;
-        return matches;
-    });
-    return excluded;
+    return excludeList.some(ex =>
+        relPath === ex ||
+        relPath.startsWith(ex + path.sep) ||
+        path.basename(relPath) === ex
+    );
 }
 
 function* walk(dir: string, parentRel = '', excludeDirs: string[] = []): Generator<{ relPath: string, absPath: string }> {
@@ -120,13 +115,84 @@ function* walk(dir: string, parentRel = '', excludeDirs: string[] = []): Generat
     }
 }
 
+function guessCodeLang(filename: string): string {
+    const ext = path.extname(filename).replace(/^\./, '');
+    // 一些常用文件名
+    if (filename.endsWith('.json')) return 'json';
+    if (filename.endsWith('.ts')) return 'ts';
+    if (filename.endsWith('.js')) return 'js';
+    if (filename.endsWith('.md')) return 'md';
+    if (filename.endsWith('.sh')) return 'bash';
+    if (filename.endsWith('.yml') || filename.endsWith('.yaml')) return 'yaml';
+    return '';
+}
+
+function buildTree(files: OutputFile[]) {
+    // 构建树结构
+    type TreeNode = {
+        name: string;
+        ok?: boolean;
+        children?: Map<string, TreeNode>;
+        relPath?: string;
+    };
+    const root: TreeNode = { name: '' };
+
+    for (const f of files) {
+        const parts = f.relPath.split(path.sep);
+        let cur = root;
+        let partial: string[] = [];
+        for (let i = 0; i < parts.length; i++) {
+            const part = parts[i];
+            partial.push(part);
+            if (!cur.children) cur.children = new Map();
+            if (!cur.children.has(part)) {
+                cur.children.set(part, {
+                    name: part,
+                });
+            }
+            cur = cur.children.get(part)!;
+            // 最后一层放 relPath/ok
+            if (i === parts.length - 1) {
+                cur.relPath = f.relPath;
+                cur.ok = f.ok;
+            }
+        }
+    }
+    return root;
+}
+
+function printTree(
+    node: ReturnType<typeof buildTree>,
+    prefix: string = '',
+    isLast: boolean = true
+): string {
+    let output = '';
+    // 跳过根节点空名
+    const entries = node.children ? Array.from(node.children.values()) : [];
+    entries.forEach((child, idx) => {
+        const isLastChild = idx === entries.length - 1;
+        const branch = isLastChild ? '└── ' : '├── ';
+        let line = prefix + branch + child.name;
+        if (child.relPath) line += ' ' + (child.ok ? '✅成功' : '❌失败');
+        output += line + '\n';
+        if (child.children && child.children.size > 0) {
+            output += printTree(
+                child,
+                prefix + (isLastChild ? '    ' : '│   '),
+                isLastChild
+            );
+        }
+    });
+    return output;
+}
+
 function main() {
     const config = loadMergedConfig();
     if (config === 'help') { printHelp(); process.exit(0); }
     if (config === 'version') { printVersion(); process.exit(0); }
 
     let excludeDirs = config.exclude ? [...config.exclude] : [];
-    const outputFile = config.output;
+    const outputFile = config.output || 'kodexor-export.md';
     const rootDir = '.';
 
     // 避免导出包含自身
@@ -136,17 +202,49 @@ function main() {
         if (!excludeDirs.includes(outputBase)) excludeDirs.push(outputBase);
     }
 
-    let writeStream: Writable = outputFile
-        ? fs.createWriteStream(outputFile)
-        : process.stdout;
+    // 获取项目名
+    let projectName = 'Project';
+    try {
+        const pkg = JSON.parse(fs.readFileSync('./package.json', 'utf8'));
+        projectName = pkg.name || 'Project';
+    } catch {}
+
+    // 收集导出的文件列表
+    const files: Array<{
+        relPath: string;
+        ok: boolean;
+        error?: string;
+        content?: string;
+    }> = [];
 
     for (const { relPath, absPath } of walk(rootDir, '', excludeDirs)) {
-        const code = fs.readFileSync(absPath, 'utf8');
-        writeStream.write(`\n==== FILE: ${relPath} ====\n`);
-        writeStream.write(code + '\n');
-        writeStream.write(`==== END FILE ====\n`);
+        try {
+            const code = fs.readFileSync(absPath, 'utf8');
+            files.push({ relPath, ok: true, content: code });
+        } catch (e: any) {
+            files.push({ relPath, ok: false, error: e?.toString() || 'Unknown error' });
+        }
     }
-    if (writeStream !== process.stdout) (writeStream as fs.WriteStream).end();
+
+    // 构造 markdown 内容
+    let md = `# ${projectName}\n\n`;
+
+    for (const file of files) {
+        md += `## ${file.relPath}\n`;
+        const lang = file.ok ? guessCodeLang(file.relPath) : '';
+        md += '```' + lang + '\n';
+        md += file.ok ? (file.content ?? '').replace(/```/g, '``\u200b`') : (file.error || '读取失败');
+        md += '\n```\n\n';
+    }
+
+    // 总结导出情况
+    md += `# 文件输出情况 (tree 结构)\n`;
+    md += '```\n';
+    md += printTree(buildTree(files));
+    md += '```\n';
+
+    fs.writeFileSync(outputFile, md, 'utf8');
+    console.log(`[kodexor] 导出完毕 => ${outputFile}`);
 }
 
 main();

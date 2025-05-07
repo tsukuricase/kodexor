@@ -1,5 +1,11 @@
 # kodexor
 
+## 0.0.11
+
+### Patch Changes
+
+- feat: enhance kodexor CLI to export project files as markdown and improve output structure
+
 ## 0.0.10
 
 ### Patch Changes
