@@ -1,5 +1,12 @@
 # kodexor
 
+## 0.0.10
+
+### Patch Changes
+
+- feat: integrate cosmiconfig for multi-level configuration support in CLI utility
+- 64fd860: chore: update publish workflow to trigger on master branch instead of version tags
+
 ## 0.0.8
 
 ### Patch Changes
