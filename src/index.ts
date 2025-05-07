@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 import * as fs from 'fs';
 import * as path from 'path';
-import { Writable } from 'stream';
 import os from 'os';
 import { cosmiconfigSync } from 'cosmiconfig';
 
@@ -221,7 +220,6 @@ function main() {
         }
     }
 
-    // 构造 markdown 内容
     let md = `# ${projectName}\n\n`;
 
     for (const file of files) {
