@@ -3,7 +3,6 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { Writable } from 'stream';
 
-// 参数解析与过滤（如之前 JS 版类似）
 interface Options {
   excludeDirs: string[];
   output?: string;
