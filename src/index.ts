@@ -193,7 +193,6 @@ function main() {
     const outputFile = config.output || 'kodexor-export.md';
     const rootDir = '.';
 
-    // 避免导出包含自身
     if (outputFile) {
         if (!excludeDirs.includes(outputFile)) excludeDirs.push(outputFile);
         const outputBase = path.basename(outputFile);
