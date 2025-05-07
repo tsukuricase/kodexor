@@ -1,37 +1,31 @@
-name: Release
+name: Release NPM package
+
 on:
   push:
     branches:
-      - master  
+      - 'master'      
+
 jobs:
-  release:
+  publish:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
         with:
-          node-version: 20
-          registry-url: 'https://registry.npmjs.org'
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org/'
 
-      - name: Install pnpm
-        run: npm install -g pnpm
+      - name: Install dependencies
+        run: npm install
 
-      - name: Install deps
-        run: pnpm install
+      - name: Build
+        run: npm run build
 
-      - run: pnpm install
-      - name: Setup Git user for CI
-        run: |
-          git config --global user.name 'github-actions[bot]'
-          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
-
-      - name: Create Release Pull Request or Publish to npm
-        uses: changesets/action@v1
-        with:
-          publish: pnpm publish --access public
+      - name: Publish to npm
+        run: npm publish --access public
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_AUTH_TOKEN: ${{ secrets.AUTOMATION_NPM_TOKEN }}
